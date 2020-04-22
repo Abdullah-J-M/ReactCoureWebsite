@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import CourseForm from './CourseForm';
-import * as courseApi from '../api/courseApi';
+import courseStore from '../stores/courseStore';
+import PageNotFound from './PageNotFound';
 import { toast } from 'react-toastify';
+import * as courseActions from '../actions/courseActions';
 
 const ManageCoursePage = (props) => {
+  const [courses, setCourses] = useState(courseStore.getCourses());
   const [errors, setErrors] = useState({});
   const [course, setCourse] = useState({
     id: null,
@@ -14,11 +17,19 @@ const ManageCoursePage = (props) => {
   });
 
   useEffect(() => {
+    courseStore.addChangeListener(onChange);
     const slug = props.match.params.slug;
-    if (slug) {
-      courseApi.getCourseBySlug(slug).then((_course) => setCourse(_course));
+    if (courses.length === 0) {
+      courseActions.loadCourses();
+    } else if (slug) {
+      setCourse(courseStore.getCourseBySlug(slug));
     }
-  }, [props.match.params.slug]);
+    return () => courseStore.removeChangeListener(onChange);
+  }, [courses.length, props.match.params.slug]);
+
+  function onChange() {
+    setCourses(courseStore.getCourses());
+  }
 
   function formIsValid() {
     const _errors = {};
@@ -39,23 +50,26 @@ const ManageCoursePage = (props) => {
     // calling preventDefualt to avoid default behavior of browser of posting back to the server
     event.preventDefault();
     if (!formIsValid()) return;
-    courseApi.saveCourse(course).then(() => {
+    courseActions.saveCourse(course).then(() => {
       props.history.push('/courses');
       toast.success('Course saved');
     });
   };
 
-  return (
-    <>
-      <h2>Manage Courses</h2>
-      <CourseForm
-        errors={errors}
-        course={course}
-        onChange={handleChange}
-        onSubmit={handleSubmit}
-      />
-    </>
-  );
+  if (!course) {
+    return <PageNotFound />;
+  } else
+    return (
+      <>
+        <h2>Manage Courses</h2>
+        <CourseForm
+          errors={errors}
+          course={course}
+          onChange={handleChange}
+          onSubmit={handleSubmit}
+        />
+      </>
+    );
 };
 
 export default ManageCoursePage;
